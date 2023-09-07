@@ -1,0 +1,99 @@
+#define BLYNK_TEMPLATE_ID "TMPL25nTTw4bg"
+#define BLYNK_TEMPLATE_NAME "PROYECTO2"
+#define BLYNK_AUTH_TOKEN "1Z0BrTiNhGuEo8BOZstDT7jF7ma2a6qT"
+
+/* Comenta esto para desactivar las impresiones y ahorrar espacio */
+#define BLYNK_PRINT Serial
+
+#include <ESP8266_Lib.h>
+#include <BlynkSimpleShieldEsp8266.h>
+#include <DHT.h>
+
+
+// Tus credenciales WiFi.
+// Deja el campo de contraseña en blanco ("") si es una red abierta.
+char auth[] = BLYNK_AUTH_TOKEN;
+//char ssid[] = "Josue";
+//char pass[] = "josue1234";
+char ssid[] = "Wilson";
+char pass[] = "Wilo08JA";
+// O bien, utiliza Software Serial en Arduino Uno, Nano...
+#include <SoftwareSerial.h>
+SoftwareSerial EspSerial(2, 3);  // RX, TX
+
+// Velocidad de comunicación con el módulo ESP8266:
+#define ESP8266_BAUD 115200
+
+ESP8266 wifi(&EspSerial);
+
+// Define los pines para el sensor DHT11
+#define DHTPIN 7       // Qué pin digital estamos usando para el sensor
+#define DHTTYPE DHT11  // Tipo de sensor DHT (DHT11)
+
+
+DHT dht(DHTPIN, DHTTYPE);
+int ledPin = 9;     // Pin del LED
+int sonidoPin = 8;  // Sonido
+const int pirPin = 4;
+bool movimiento = false;
+
+void setup() {
+  // Consola de depuración
+  Serial.begin(115200);
+
+  // Establece la velocidad de comunicación del módulo ESP8266
+  EspSerial.begin(ESP8266_BAUD);
+  delay(10);
+  dht.begin();
+  pinMode(pirPin, INPUT);
+  pinMode(ledPin, OUTPUT);  // Configura el pin del LED como salida
+  pinMode(sonidoPin, OUTPUT);
+  digitalWrite(sonidoPin, LOW);
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, wifi, ssid, pass);
+}
+void loop() {
+  Blynk.run();
+
+  delay(2000);  // Espera 2 segundos entre lecturas (puedes ajustar este valor)
+
+  // Lectura de la temperatura y la humedad
+  float temperatura = dht.readTemperature();
+  float humedad = dht.readHumidity();
+
+
+  // Verifica si la lectura fue exitosa
+  if (isnan(temperatura) || isnan(humedad)) {
+    Serial.println("Error al leer el sensor DHT11!");
+  } else {
+    // Muestra los valores de temperatura y humedad
+    Serial.print("Temperatura: ");
+    Serial.print(temperatura);
+    Serial.print(" °C, Humedad: ");
+    Serial.print(humedad);
+    Serial.println(" %");
+
+    Blynk.virtualWrite(V5, temperatura);
+    Blynk.virtualWrite(V6, humedad);
+    Blynk.virtualWrite(V1, "");
+    // Comprobar si hay movimiento detectado por el sensor PIR
+    if (digitalRead(pirPin) == HIGH) {
+      digitalWrite(ledPin, HIGH);  // Encender el LED
+      Blynk.virtualWrite(V1, "Se detecto movimiento");
+      Serial.println("Se detecto movimiento");
+      delay(4000);       // Esperar el tiempo definido para apagar automáticamente el LED
+      digitalWrite(ledPin, LOW);  // Apagar el LED después del tiempo de espera
+    }
+    delay(2000);
+    Blynk.virtualWrite(V1, "No se detecta movimiento");
+    Serial.println("No se detecto movimiento");
+  }
+
+  if (temperatura > 24) {
+    digitalWrite(ledPin, HIGH);  // Enciende el LED
+    tone(sonidoPin, 1000);       // Genera un tono en el buzzer pasivo
+  } else {
+    digitalWrite(ledPin, LOW);  // Apaga el LED
+    noTone(sonidoPin);          // Detiene el tono en el buzzer pasivo
+  }
+}
